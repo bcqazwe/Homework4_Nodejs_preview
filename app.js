@@ -18,6 +18,22 @@ const db = new sqlite3.Database(dbPath, (err) => {
     console.error('app.js: 無法開啟資料庫:', err.message);
   } else {
     console.log('app.js: 成功連接至 SQLite 資料庫：db/sqlite.db');
+    // 初始化資料表
+    db.run(`
+      CREATE TABLE IF NOT EXISTS FuelPrices (
+        price_date TEXT PRIMARY KEY,
+        unleaded_92 REAL,
+        unleaded_95 REAL,
+        unleaded_98 REAL,
+        diesel REAL
+      )
+    `, (tableErr) => {
+      if (tableErr) {
+        console.error('初始化資料表失敗:', tableErr.message);
+      } else {
+        console.log('資料表 FuelPrices 已準備就緒');
+      }
+    });
   }
 });
 
