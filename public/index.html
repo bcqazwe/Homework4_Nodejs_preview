@@ -1,0 +1,315 @@
+<html>
+
+<head>
+  <title>作業4 通貨膨脹</title>
+  <link rel="stylesheet" href="stylesheets/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <div class="container">
+    <h1>中油油價管理系統</h1>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="openTab('insert')">新增油價</button>
+      <button class="tab-btn" onclick="openTab('search')">歷史查詢</button>
+      <button class="tab-btn" onclick="openTab('analysis')">趨勢分析</button>
+    </div>
+
+    <div id="insert" class="tab-content active">
+      <section>
+        <form id="fuelPriceForm">
+          <div class="form-group">
+            <label for="price_date">日期 (YYYY-MM-DD):</label>
+            <input type="text" id="price_date" name="price_date" placeholder="2026-05-09" required>
+          </div>
+          <div class="form-group">
+            <label for="unleaded_92">92 無鉛:</label>
+            <input type="number" id="unleaded_92" name="unleaded_92" step="0.1">
+          </div>
+          <div class="form-group">
+            <label for="unleaded_95">95 無鉛:</label>
+            <input type="number" id="unleaded_95" name="unleaded_95" step="0.1">
+          </div>
+          <div class="form-group">
+            <label for="unleaded_98">98 無鉛:</label>
+            <input type="number" id="unleaded_98" name="unleaded_98" step="0.1">
+          </div>
+          <div class="form-group">
+            <label for="diesel">超級柴油:</label>
+            <input type="number" id="diesel" name="diesel" step="0.1">
+          </div>
+          <button type="submit">新增資料</button>
+        </form>
+        <div id="result">
+          <p id="responseMessage"></p>
+        </div>
+      </section>
+    </div>
+
+    <div id="search" class="tab-content">
+      <section>
+        <div id="search-section">
+          <div class="form-group" style="display: flex; gap: 10px;">
+            <input type="text" id="search_year" placeholder="輸入年份 (如: 2026)" style="flex: 1;">
+            <button onclick="searchPrices()" style="width: auto;">查詢</button>
+          </div>
+        </div>
+        <table id="priceTable" style="display: none;">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>92</th>
+              <th>95</th>
+              <th>98</th>
+              <th>柴油</th>
+            </tr>
+          </thead>
+          <tbody id="priceBody"></tbody>
+        </table>
+      </section>
+    </div>
+
+    <div id="analysis" class="tab-content">
+      <section>
+        <div style="height: 400px; position: relative;">
+          <canvas id="fuelChart"></canvas>
+        </div>
+        <div id="chartStats" style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 15px; justify-content: center;">
+          <!-- 統計數據將由 JS 動態注入 -->
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    let fuelChart = null; // 全域變數存放圖表實例
+
+    // Tab 切換邏輯
+    async function openTab(tabName) {
+      const contents = document.querySelectorAll('.tab-content');
+      const buttons = document.querySelectorAll('.tab-btn');
+
+      contents.forEach(content => content.classList.remove('active'));
+      buttons.forEach(btn => btn.classList.remove('active'));
+
+      document.getElementById(tabName).classList.add('active');
+      const currentBtn = window.event.currentTarget;
+      currentBtn.classList.add('active');
+      
+      // 如果切換到分析頁面，自動獲取所有歷史數據
+      if (tabName === 'analysis') {
+        const API_BASE = 'http://localhost:3000';
+        try {
+          const response = await fetch(`${API_BASE}/api/all`);
+          const data = await response.json();
+          if (response.ok) {
+            updateChart(data);
+          }
+        } catch (err) {
+          console.error('無法載入分析數據:', err);
+        }
+        
+        if (fuelChart) {
+          fuelChart.resize();
+        }
+      }
+    }
+
+    // 初始化/更新圖表
+    function updateChart(data) {
+      const ctx = document.getElementById('fuelChart').getContext('2d');
+      
+      // 注意：API /api/all 已經是 ASC 排序，不需要 reverse
+      const sortedData = data; 
+      
+      const labels = sortedData.map(item => item.price_date);
+      const datasets = [
+        { label: '92 無鉛', key: 'unleaded_92', color: '#ffcd56' },
+        { label: '95 無鉛', key: 'unleaded_95', color: '#ff6384' },
+        { label: '98 無鉛', key: 'unleaded_98', color: '#36a2eb' },
+        { label: '超級柴油', key: 'diesel', color: '#4bc0c0' }
+      ];
+
+      // 計算極值與準備數據集
+      const chartDatasets = datasets.map(ds => {
+        const values = sortedData.map(item => item[ds.key]);
+        const validValues = values.filter(v => v !== null && v !== undefined);
+        const max = Math.max(...validValues);
+        const min = Math.min(...validValues);
+
+        return {
+          label: ds.label,
+          data: values,
+          borderColor: ds.color,
+          backgroundColor: ds.color,
+          tension: 0.1,
+          spanGaps: true,
+          pointRadius: values.map(v => (v === max || v === min) ? 6 : 0), // 非極值點縮小
+          pointHoverRadius: 5,
+          pointBackgroundColor: values.map(v => {
+            if (v === max) return '#dc3545'; // 最高點紅
+            if (v === min) return '#28a745'; // 最低點綠
+            return ds.color;
+          }),
+          pointBorderWidth: values.map(v => (v === max || v === min) ? 2 : 0)
+        };
+      });
+
+      if (fuelChart) {
+        fuelChart.destroy();
+      }
+
+      fuelChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: chartDatasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            tooltip: {
+              enabled: true
+            },
+            legend: {
+              position: 'top',
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: false,
+              title: { display: true, text: '價格 ($)' }
+            },
+            x: {
+              title: { display: true, text: '日期' },
+              ticks: {
+                autoSkip: true,
+                maxRotation: 0,
+                autoSkipPadding: 20
+              }
+            }
+          }
+        }
+      });
+
+      // 更新統計卡片
+      updateStatsCards(datasets, sortedData);
+    }
+
+    function updateStatsCards(datasets, data) {
+      const container = document.getElementById('chartStats');
+      container.innerHTML = '';
+
+      datasets.forEach(ds => {
+        const values = data.map(item => item[ds.key]).filter(v => v !== null);
+        const max = Math.max(...values);
+        const min = Math.min(...values);
+        
+        const card = document.createElement('div');
+        card.style.cssText = `
+          background: #fdfdfd;
+          border: 1px solid #eee;
+          border-radius: 6px;
+          padding: 10px 15px;
+          min-width: 150px;
+          border-left: 5px solid ${ds.color};
+          text-align: center;
+        `;
+        card.innerHTML = `
+          <div style="font-weight: bold; margin-bottom: 5px;">${ds.label}</div>
+          <div style="color: #dc3545; font-size: 0.9em;">最高: ${max || '-'}</div>
+          <div style="color: #28a745; font-size: 0.9em;">最低: ${min || '-'}</div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // 處理表單提交 (新增)
+    document.getElementById('fuelPriceForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(e.target);
+      const params = new URLSearchParams(formData).toString();
+      const messageElement = document.getElementById('responseMessage');
+      
+      // 定義 API 基礎網址
+      const API_BASE = 'http://localhost:3000';
+      
+      try {
+        console.log('發送請求至:', `${API_BASE}/api/insert?${params}`);
+        // 使用 async/await 發送 fetch GET 請求
+        const response = await fetch(`${API_BASE}/api/insert?${params}`);
+        console.log('回應狀態:', response.status);
+        const data = await response.json();
+        console.log('收到資料:', data);
+        
+        if (response.ok) {
+          // 根據 API 回傳格式顯示 message (資料新增成功)
+          messageElement.textContent = `成功: ${data.message} (日期: ${data.date})`;
+          messageElement.style.color = 'green';
+          e.target.reset(); // 清空表單
+        } else {
+          // 顯示錯誤訊息 (來自 API 的 error 欄位)
+          messageElement.textContent = `失敗: ${data.error || '未知錯誤'}`;
+          messageElement.style.color = 'red';
+        }
+      } catch (err) {
+        messageElement.textContent = '連線失敗，請確認伺服器已啟動';
+        messageElement.style.color = 'red';
+        console.error('Fetch error:', err);
+      }
+    });
+
+    // 處理查詢
+    async function searchPrices() {
+      const yearInput = document.getElementById('search_year');
+      const year = yearInput.value;
+      if (year.length !== 4) {
+        alert('請輸入四位數年份');
+        return;
+      }
+
+      // 修正：補回 /api 並保留 price_date 參數
+      const API_BASE = 'http://localhost:3000'; 
+
+      try {
+        console.log('查詢年份:', year);
+        const response = await fetch(`${API_BASE}/api?price_date=${year}`);
+        console.log('查詢回應狀態:', response.status);
+        const data = await response.json();
+        const table = document.getElementById('priceTable');
+        const tbody = document.getElementById('priceBody');
+        
+        tbody.innerHTML = '';
+        if (response.ok && Array.isArray(data)) {
+          data.forEach(item => {
+            const row = `<tr>
+              <td>${item.price_date}</td>
+              <td>${item.unleaded_92 || '-'}</td>
+              <td>${item.unleaded_95 || '-'}</td>
+              <td>${item.unleaded_98 || '-'}</td>
+              <td>${item.diesel || '-'}</td>
+            </tr>`;
+            tbody.innerHTML += row;
+          });
+          table.style.display = 'table';
+          updateChart(data); // 同步更新圖表
+        } else {
+          alert(data.message || '找不到資料');
+          table.style.display = 'none';
+        }
+      } catch (err) {
+        console.error(err);
+        alert('查詢失敗，請檢查網路連線');
+      }
+    }
+  </script>
+</body>
+
+</html>

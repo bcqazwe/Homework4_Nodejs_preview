@@ -1,0 +1,33 @@
+# ui-minimalist Specification
+
+## Purpose
+TBD - created by archiving change refine-ui-minimalist. Update Purpose after archive.
+## Requirements
+### Requirement: 模組化介面配置
+系統應（SHALL）提供一個結構清晰的介面，將「資料錄入（新增/更新）」功能與「數據展示（查詢/列表）」功能區分開，以提升使用者專注度。
+
+#### Scenario: 切換功能分頁
+- **WHEN** 使用者點擊導航欄中的「新增資料」或「查詢列表」
+- **THEN** 系統應切換顯示對應的功能區域，並隱藏非當前功能的內容。
+
+### Requirement: 簡約數據表格
+系統應（SHALL）使用具有良好閱讀性的表格樣式顯示油價數據，必須包含清楚的標題、斑馬紋背景與鼠標懸停（Hover）高亮效果。
+
+#### Scenario: 查看歷史數據列表
+- **WHEN** 使用者查詢年度資料成功後
+- **THEN** 系統以斑馬紋表格顯示日期、92、95、98 及柴油價格，每一列表項在鼠標經過時應有背景色變化。
+
+### Requirement: 內容引導與回饋優化
+系統在進行資料處理（如新增成功、查詢無結果）時，應（SHALL）提供位置明顯、樣式統一的提示訊息。
+
+#### Scenario: 提交表單結果提示
+- **WHEN** 使用者提交新增資料表單
+- **THEN** 系統於表單下方或頂部顯示清晰的成功或失敗訊息，成功時文字為綠色，失敗為紅色。
+
+### Requirement: 現代化表單組件
+表單輸入框應（SHALL）具有統一的寬度、內邊距與邊框樣式，並提供明確的 Placeholder 說明。
+
+#### Scenario: 輸入油價資料
+- **WHEN** 使用者點擊輸入框
+- **THEN** 輸入框應有明顯的 Focus 邊框高亮，且標籤與輸入框對齊美觀。
+
